@@ -1,0 +1,23 @@
+{
+    "manifest_version": 3,
+    "name": "Web-Scape",
+    "version": "0.0.1",
+    "descripton": "Dynamic procedural ambient soundtracks per webpage mood.",
+    "permissions": ["storage", "tabs", "activeTab"],
+    "host_permissions": ["<all_urls>"],
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches":["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_title": "Web-Scape",
+        "default_popup": "popup.html"
+    }
+}
