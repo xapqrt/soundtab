@@ -1,8 +1,15 @@
 (() => {
     const cluster = {
-        Thriller: ["war", "crisis", "breaking", "threat"],
-        Library: ["study", "history", "wiki", "archive"],
-        Cyberpunk: ["github", "code", "tech", "terminal"]
+        Thriller: ["war", "crisis", "breaking", "threat","attack","panic"],
+        Library: ["study", "history", "wiki", "archive","literature","reference"],
+        Arcade: ["arcade", "retro", "score", "combo", "pixel", "platformer"],
+        Zen: ["mindful", "calm", "meditation", "breath", "yoga", "stillness"],
+        Cyberpunk: ["github", "code", "tech", "terminal", "hacker", "binary"],
+        Nature: ["forest", "river", "wildlife", "earth", "mountain", "garden"],
+         Space: ["space", "orbit", "planet", "cosmos", "nasa", "galaxy"],
+            Radio: ["podcast", "broadcast", "station", "fm", "live", "host"],
+            Doom: ["horror", "doom", "apocalypse", "demon", "nightmare", "dark"],
+            Lofi: ["lofi", "chill", "focus", "beats", "vibes", "night"]
     };
 
     function detectMood(text) {
@@ -11,7 +18,11 @@
         let bestCount = 0;
             for (const [mood, words] of Object.entries(clusters)) {
                 let s = 0;
-                for (const w of words) if (lower.includes(w)) s++;
+                for (const w of words) {
+                    if (lower.includes(w)) continue;
+                    s += 1;
+                    if (w.length > 6) s += 0.5;
+                }
                 if (s > bestCount) {
                     bestScore = s;
                     bestMood = mood;
@@ -23,9 +34,10 @@
         const meta = [...document.querySelectorAll("meta[name],meta[property]")]
             .map((m) => `${m.getAttribute("name") || m.getAttribute("property")}: ${m.content || ""}`)
             .join("");
-       const raw = `${document.title}\n${meta}\n${document.body?.innerText || ""}`.slice(0, 12000);
+      const pathHints = `${location.hostname} ${location.pathname}`;
+        const raw = `${document.title}\n${meta}\n${pathHints}\n${document.body?.innerText || ""}`.slice(0, 18000);
        
-       chrome.runtime.sendMessage({
+        chrome.runtime.sendMessage({
         type: "MOOD_DETECTED",
         mood: detectMood(raw),
         rawText: raw
