@@ -62,6 +62,21 @@ const MOOD_KEYWORDS = {
     Lofi: ["chill","lofi","focus","beats","vibes","late night"]
 };
 
+const DOMAIN_MOOD_HINTS = {
+"wikipedia.org": "Library",
+"github.com": "Cyberpunk",
+"gitlab.com": "Cyberpunk",
+"x.com": "Arcade",
+"twitter.com": "Arcade",
+"instagram.com": "Arcade",
+"tiktok.com": "Arcade",
+"bbc.com": "Thriller",
+"cnn.com": "Thriller",
+"nytimes.com": "Thriller",
+"nature.com": "Nature",
+"nasa.gov": "Space",
+};
+
 function pickMoodFromDomain(rawText) {
     const text = (rawText || "").toLowerCase();
     let winner = "Lofi";
@@ -77,12 +92,32 @@ function pickMoodFromDomain(rawText) {
     return winner;
 }
 
+function pickMoodfromDomain(domain) {
+if(!domain) return null;
+const hint = Object.entries(DOMAIN_MOOD_HINTS)
+.find(([needle]) => domain.endsWith(needle));
+return hint ? hint[1] : "";
+}
+
+function chooseMood(domain,rawText) {
+const contentMood = pickMoodfromKeywords(rawText);
+const domainMood = pickMoodFromDomain(domain);
+if(!domainMood) return contentMood;
+if (domainMood === contentMood) return contentMood;
+
+const txt = (rawText || "").toLowerCase();
+const words = MOOD_KEYWORDS[contentMood] || [];
+let confidence = 0;
+for(const w of words) if(txt.includes(w)) confidence += 1;
+return confidence >=3 ? contentMood : domainMood;
+}
+
 chrome.runtime.onMessage.addListener((msg, sender) => {
     if (msg?.type === "MOOD_DETECTED") {
         const url = sender?.tab?.url || "";
         const domain = safeDomain(url);
-        const mood = msg.mood && TRACKS.includes(msg.mood)
-        ? msg.mood : pickMoodFromDomain(msg.rawText);
+        const hintMood = msg.mood && TRACKS.includes(msg.mood)?msg.mood : "";
+        const mood = chooseMood(domain, `${msg.rawText || ""} ${hintMood}`);
         routeDomainMood(domain, mood);
     }
 });
@@ -135,7 +170,7 @@ const  tab = tabs?.[0];
 if(!tab?.url) return;
 const domain = safeDomain(tab.url);
 const guessText = `${tab.title || ""} ${domain}`;
-const gussedMood = pickMoodFromKeywords(guessText);
+const gussedMood = chooseMood(domain, guessText);
 routeDomainMood(domain, gussedMood);
 }
 

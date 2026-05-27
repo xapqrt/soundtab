@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Web-Scape",
     "version": "0.0.1",
-    "descripton": "Dynamic procedural ambient soundtracks per webpage mood.",
+    "description": "Dynamic procedural ambient soundtracks per webpage mood.",
     "permissions": ["storage", "tabs", "activeTab"],
     "host_permissions": ["<all_urls>"],
     "background": {
@@ -23,7 +23,7 @@
      "commands": {
           "toggle-domain-mute": {
            "suggested_key": {
-               "default": "Alt+Shift+M"
+               "default": "Alt+Shift+M",
                "mac": "Alt+Shift+M"
            },
               "description": "Toggle mute for current domain"
