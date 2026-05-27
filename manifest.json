@@ -20,7 +20,8 @@
         "default_title": "Web-Scape",
         "default_popup": "popup.html"
     },
-     "commands": {
+   "option_page": "options.html",
+    "commands": {
           "toggle-domain-mute": {
            "suggested_key": {
                "default": "Alt+Shift+M",
