@@ -23,6 +23,7 @@
  sel.value = state.forcedTrack || "";
  status.textContent = state.forcedTrack ? `manual track: ${state.forcedTrack}` : "auto mood mode";
  vol.value = String(Math.round((state.volume ?? 0.22) * 100)); 
+document.getElementById("globalMute").checked =!!state.globalMuted;
  document.getElementById("mute").checked = state.muted;
 
     sel.addEventListener("change", () => {
@@ -47,7 +48,12 @@ document.getElementById("openSettings").addEventListener("click", () => {
 chrome.runtime,openOptionsPage();
 });
 
-    vol.addEventListener("input", () => {
+  document.getElementById("globalMute").addEventListener("change", (e) => {
+ chrome.runtime.sendMessage({ type: "POPUP_SET_GLOBAL_MUTE", muted: e.target.checked });
+status.textContent = e.target.checked ? "global mute ON" : "global mute OFF";
+  });
+
+vol.addEventListener("input", () => {
 const v = Math.max(0, Math.min(100, Number(vol.value))) / 100;
 chrome.runtime.sendMessage({ type: "POPUP_SET_VOLUME", volume: v });
 status.textContent = `volume: ${Math.round(v * 100)}%`;
