@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Web-Scape",
+    "name": "SoundTab",
     "version": "0.0.1",
     "description": "Dynamic procedural ambient soundtracks per webpage mood.",
     "permissions": ["storage", "tabs", "activeTab","alarms","offscreen"],
@@ -17,7 +17,7 @@
         }
     ],
     "action": {
-        "default_title": "Web-Scape",
+        "default_title": "SoundTab",
         "default_popup": "popup.html"
     },
    "option_page": "options.html",
