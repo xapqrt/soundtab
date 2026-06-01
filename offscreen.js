@@ -26,9 +26,10 @@ function killCurrentTrack() {
   active_track = "";
 }
 
-function softKillCurrentTrack(ms = 140) {
+function softKillCurrentTrack(ms = 140, onComplete) {
     if (!audio_ctx || !master_gain) {
         killCurrentTrack();
+        if (onComplete) onComplete();
         return;
     }
      const now = audio_ctx.currentTime;
@@ -39,6 +40,7 @@ function softKillCurrentTrack(ms = 140) {
       setTimeout(() => {
         killCurrentTrack();
         master_gain.gain.value = current_volume;
+        if (onComplete) onComplete();
       }, ms + 20);
     }
 
@@ -286,17 +288,20 @@ function startSpaceTrack() {
         return;
     }
 
-    softKillCurrentTrack(120);
-
-    setTimeout(() => {
-        STARTERS[nextTrack]();
-        if(master_gain && audio_ctx) {
-            const now = audio_ctx.currentTime;
-            master_gain.gain.setValueAtTime(0.0001, now);
-            master_gain.gain.linearRampToValueAtTime(current_volume, now + 0.18);
+    softKillCurrentTrack(120, () => {
+        try {
+            STARTERS[nextTrack]();
+            if (master_gain && audio_ctx) {
+                const now = audio_ctx.currentTime;
+                master_gain.gain.setValueAtTime(0.0001, now);
+                master_gain.gain.linearRampToValueAtTime(current_volume, now + 0.18);
+            }
+        } catch (e) {
+            console.error("Failed to play track:", e);
+        } finally {
+            transition_lock = false;
         }
-        transition_lock = false;
-    }, 130);
+    });
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
