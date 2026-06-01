@@ -56,9 +56,9 @@ document.getElementById("globalMute").checked =!!state.globalMuted;
         });
     });
 
-document.getElementById("openSettings").addEventListener("click", () => {
-chrome.runtime,openOptionsPage();
-});
+  document.getElementById("openSettings").addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+  });
 
   document.getElementById("globalMute").addEventListener("change", (e) => {
  chrome.runtime.sendMessage({ type: "POPUP_SET_GLOBAL_MUTE", muted: e.target.checked });
