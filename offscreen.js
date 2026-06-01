@@ -1,4 +1,5 @@
 const TARGET = "OFFSCREEN_AUDIO";
+const GAIN_MULTIPLIER = 2.5;
 
 let audio_ctx = null;
 let master_gain = null;
@@ -11,7 +12,7 @@ function bootAudio() {
     if (!audio_ctx || audio_ctx.state === "closed") {
         audio_ctx = new AudioContext();
             master_gain = audio_ctx.createGain();
-            master_gain.gain.value = current_volume;
+            master_gain.gain.value = current_volume * GAIN_MULTIPLIER;
             master_gain.connect(audio_ctx.destination);
           }
         if (audio_ctx.state === "suspended") audio_ctx.resume();
@@ -39,7 +40,7 @@ function softKillCurrentTrack(ms = 140, onComplete) {
       master_gain.gain.linearRampToValueAtTime(0.0001, now + ms / 1000);
       setTimeout(() => {
         killCurrentTrack();
-        master_gain.gain.value = current_volume;
+        master_gain.gain.value = current_volume * GAIN_MULTIPLIER;
         if (onComplete) onComplete();
       }, ms + 20);
     }
@@ -47,7 +48,7 @@ function softKillCurrentTrack(ms = 140, onComplete) {
     function setVolume(v) {
         current_volume = Math.max(0, Math.min(1, Number(v || 0.22)));
           if (master_gain && audio_ctx) {
-            master_gain.gain.setValueAtTime(current_volume, audio_ctx.currentTime);
+            master_gain.gain.setValueAtTime(current_volume * GAIN_MULTIPLIER, audio_ctx.currentTime);
           }
         }
 
@@ -308,7 +309,7 @@ function startSpaceTrack() {
             if (master_gain && audio_ctx) {
                 const now = audio_ctx.currentTime;
                 master_gain.gain.setValueAtTime(0.0001, now);
-                master_gain.gain.linearRampToValueAtTime(current_volume, now + 0.18);
+                master_gain.gain.linearRampToValueAtTime(current_volume * GAIN_MULTIPLIER, now + 0.18);
             }
         } catch (e) {
             console.error("Failed to play track:", e);
