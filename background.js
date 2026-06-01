@@ -140,15 +140,6 @@ function chooseMood(domain,rawText,signals={}) {
     return confidence >=3 ? contentMood : domainMood;
 }
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (msg?.type === "MOOD_DETECTED") {
-        const url = sender?.tab?.url || "";
-        const domain = safeDomain(url);
-        const hintMood = msg.mood && TRACKS.includes(msg.mood)?msg.mood : "";
-        const mood = chooseMood(domain, `${msg.rawText || ""} ${hintMood}`, msg.signals || {});
-        routeDomainMood(domain, mood);
-    }
-});
 
 function safeDomain(urlString) {
     try {
