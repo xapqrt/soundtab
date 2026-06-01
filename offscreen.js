@@ -65,12 +65,19 @@ function softKillCurrentTrack(ms = 140, onComplete) {
     }
 
 function startThrillerTrack() {
-    const bass = mkOsc("sawtooth", 41, 0.03, -7);
-      const drone = mkOsc("triangle", 82, 0.02, 4);
-      const pulse = mkOsc("square", 1.2, 0.015, 0);
-      pulse.o.connect(pulse.g);
-      active_track = "Thriller";
-    }
+    const bass = mkOsc("sawtooth", 41, 0.02, -7);
+    const drone = mkOsc("triangle", 82, 0.02, 4);
+    const string = mkOsc("sine", 660, 0.008);
+    let t = 0;
+    const timer = setInterval(() => {
+        t += 0.15;
+        if (string.o && string.o.frequency) {
+            string.o.frequency.value = 660 + Math.sin(t * 2) * 5;
+        }
+    }, 80);
+    active_nodes.push({ stop: () => clearInterval(timer), disconnect: () => {} });
+    active_track = "Thriller";
+}
 
 
 
@@ -168,21 +175,28 @@ function startLibrarianTrack() {
 
 
 function startNatureTrack() {
-  const noise_buffer = audio_ctx.createBuffer(1, audio_ctx.sampleRate * 2, audio_ctx.sampleRate);
+  const noise_buffer = audio_ctx.createBuffer(1, audio_ctx.sampleRate * 4, audio_ctx.sampleRate);
   const out = noise_buffer.getChannelData(0);
-  for (let i = 0; i < out.length; i++) out[i] = (Math.random() * 2 - 1) * 0.2;
+  for (let i = 0; i < out.length; i++) out[i] = (Math.random() * 2 - 1) * 0.15;
   const src = audio_ctx.createBufferSource();
   src.buffer = noise_buffer;
   src.loop = true;
-  const bp = audio_ctx.createBiquadFilter();
-  bp.type = "bandpass";
-  bp.frequency.value = 980;
+  const lp = audio_ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 400;
   const g = audio_ctx.createGain();
-  g.gain.value = 0.018;
-  src.connect(bp).connect(g).connect(master_gain);
+  g.gain.value = 0.03;
+  src.connect(lp).connect(g).connect(master_gain);
   src.start();
-  const bird = mkOsc("sine", 1320, 0.004);
-  active_nodes.push(src, bp, g, bird.o, bird.g);
+  let t = 0;
+  const timer = setInterval(() => {
+      t += 0.05;
+      if (lp && lp.frequency) {
+          lp.frequency.value = 300 + Math.sin(t) * 150;
+      }
+  }, 100);
+  const drone = mkOsc("sine", 110, 0.015);
+  active_nodes.push(src, lp, g, { stop: () => clearInterval(timer), disconnect: () => {} });
   active_track = "Nature";
 }
 

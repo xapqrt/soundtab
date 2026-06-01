@@ -65,11 +65,13 @@ async function bootAudio() {
 }
 
 async function killCurrentTrack() {
+    if (active_track === null) return;
     active_track = null;
     await sendAudioMessage("AUDIO_STOP");
 }
 
 async function softKillCurrentTrack(ms = 140) {
+    if (active_track === null) return;
     active_track = null;
     await sendAudioMessage("AUDIO_STOP");
 }
