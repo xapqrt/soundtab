@@ -14,40 +14,64 @@ let transition_lock = false;
 let master_volume = 0.22;
 let global_muted = false;
 
-function bootAudio() {
-    if (!audio_ctx || audio_ctx.state === "closed") {
-        audio_ctx = new AudioContext();
-        master_gain = audio_ctx.createGain();
-        master_gain.gain.value = master_volume;
-        master_gain.connect(audio_ctx.destination);
-        console.log("AUDIO CONTEXT DIED REBOOTING");
-    }
-    if (audio_ctx.state === "suspended") audio_ctx.resume();
-}
-
-function killCurrentTrack() {
-    for (const n of active_nodes) {
-        try { n.stop?.(); } catch {}
-        try { n.disconnect?.(); } catch {}
-    }
-    active_nodes = [];
-    active_track = null;
-}
-
-function softKillCurrentTrack(ms = 140) {
-    if(!audio_ctx || !mastergain) {
-        killCurrentTrack();
+let offscreenCreating = null;
+async function setupOffscreen() {
+    try {
+        const contexts = await chrome.runtime.getContexts({
+            contextTypes: ['OFFSCREEN_DOCUMENT']
+        });
+        if (contexts.length > 0) return;
+    } catch (e) {}
+    if (offscreenCreating) {
+        await offscreenCreating;
         return;
     }
-const now = audio_ctx.currentTime;
-const cur = master_gain.gain.value;
-master_gain.gain.cancelScheduledValues(now);
-master_gain.gain.setValueAtTime(cur, now);
-master_gain.gain.linearRampToValueAtTime(0.0001, now + ms / 1000);
-setTimeout(() => {
- killCurrentTrack();
-master_gain.gain.value = master_volume;
-}, ms + 50);
+    offscreenCreating = chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: ['AUDIO_PLAYBACK'],
+        justification: 'ambient soundtracks for webpages'
+    }).catch((err) => {
+        if (!err.message.includes('Only a single offscreen document may be created')) {
+            console.error(err);
+        }
+    }).finally(() => {
+        offscreenCreating = null;
+    });
+    await offscreenCreating;
+}
+
+async function sendAudioMessage(type, data = {}) {
+    await setupOffscreen();
+    let success = false;
+    for (let i = 0; i < 5; i++) {
+        try {
+            await chrome.runtime.sendMessage({
+                target: "OFFSCREEN_AUDIO",
+                type,
+                volume: master_volume,
+                ...data
+            });
+            success = true;
+            break;
+        } catch (err) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+    }
+}
+
+async function bootAudio() {
+    await setupOffscreen();
+    await sendAudioMessage("AUDIO_INIT");
+}
+
+async function killCurrentTrack() {
+    active_track = null;
+    await sendAudioMessage("AUDIO_STOP");
+}
+
+async function softKillCurrentTrack(ms = 140) {
+    active_track = null;
+    await sendAudioMessage("AUDIO_STOP");
 }
 
 const MOOD_KEYWORDS = {
@@ -78,7 +102,7 @@ const DOMAIN_MOOD_HINTS = {
 "nasa.gov": "Space",
 };
 
-function pickMoodFromDomain(rawText) {
+function pickMoodFromKeywords(rawText) {
     const text = (rawText || "").toLowerCase();
     let winner = "Lofi";
     let best = 0;
@@ -93,27 +117,27 @@ function pickMoodFromDomain(rawText) {
     return winner;
 }
 
-function pickMoodfromDomain(domain) {
-if(!domain) return null;
-const hint = Object.entries(DOMAIN_MOOD_HINTS)
-.find(([needle]) => domain.endsWith(needle));
-return hint ? hint[1] : "";
+function pickMoodFromDomain(domain) {
+    if(!domain) return null;
+    const hint = Object.entries(DOMAIN_MOOD_HINTS)
+        .find(([needle]) => domain.endsWith(needle));
+    return hint ? hint[1] : "";
 }
 
 function chooseMood(domain,rawText,signals={}) {
-const contentMood = pickMoodfromKeywords(rawText);
-const domainMood = pickMoodFromDomain(domain);
-if (signals.hasCode && domainMood !== "Thriller") return "Cyberpunk";
- if ((signals.articleCount || 0) > 2 && (signals.linkCount || 0) > 80) return "Library";
- if (signals.hasVideo && (signals.linkCount || 0) > 100) return "Arcade";
-if(!domainMood) return contentMood;
-if (domainMood === contentMood) return contentMood;
+    const contentMood = pickMoodFromKeywords(rawText);
+    const domainMood = pickMoodFromDomain(domain);
+    if (signals.hasCode && domainMood !== "Thriller") return "Cyberpunk";
+    if ((signals.articleCount || 0) > 2 && (signals.linkCount || 0) > 80) return "Library";
+    if (signals.hasVideo && (signals.linkCount || 0) > 100) return "Arcade";
+    if(!domainMood) return contentMood;
+    if (domainMood === contentMood) return contentMood;
 
-const txt = (rawText || "").toLowerCase();
-const words = MOOD_KEYWORDS[contentMood] || [];
-let confidence = 0;
-for(const w of words) if(txt.includes(w)) confidence += 1;
-return confidence >=3 ? contentMood : domainMood;
+    const txt = (rawText || "").toLowerCase();
+    const words = MOOD_KEYWORDS[contentMood] || [];
+    let confidence = 0;
+    for(const w of words) if(txt.includes(w)) confidence += 1;
+    return confidence >=3 ? contentMood : domainMood;
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
@@ -462,97 +486,97 @@ const STARTERS = {
     Lofi: startLofiTrack
 };
 
-function switchTrack(nextTrack) {
+async function switchTrack(nextTrack) {
     if (!TRACKS.includes(nextTrack)) return;
-    if (transition_lock) return;
-    transition_lock = true;
-    bootAudio();
-   if (active_track === nextTrack) {
-   transition_lock = false;
-   return;
-   }
-   softKillCurrentTrack(120);
-    const fn = STARTERS[nextTrack];
-  setTimeout(() => {
-if (fn) fn();
-if (master_gain && audio_ctx) {
-    const now = audio_ctx.currentTime;
-    master_gain.gain.setValueAtTime(0.0001, now);
-    master_gain.gain.linearRampToValueAtTime(master_volume, now + 0.18);
-}
-transition_lock = false;
-  }, 130);
+    if (active_track === nextTrack) return;
+    active_track = nextTrack;
+    await sendAudioMessage("AUDIO_SWITCH_TRACK", { track: nextTrack });
 }
 
-chrome.runtime.onMessage.addListener(async (msg) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.type === "POPUP_SET_TRACK") {
-      const domain = normalizeDomainLoose(msg.domain);
-if (!domain) return;
-domain_track_map[domain] = msg.track;
-        await saveVault();
-        routeDomainMood(domain, msg.track);
+        const domain = normalizeDomainLoose(msg.domain);
+        if (domain) {
+            domain_track_map[domain] = msg.track;
+            saveVault().then(() => routeDomainMood(domain, msg.track));
+        }
+        return false;
     }
-  if (msg?.type === "POPUP_CLEAR_TRACK") {
-     const domain = normalizeDomainLoose(msg.domain);
-      if (!domain) return;
-delete domain_track_map[domain];
-       await saveVault();
-       recheckActiveTabMood().catch(() => {});
-  }
+    if (msg?.type === "POPUP_CLEAR_TRACK") {
+        const domain = normalizeDomainLoose(msg.domain);
+        if (domain) {
+            delete domain_track_map[domain];
+            saveVault().then(() => recheckActiveTabMood().catch(() => {}));
+        }
+        return false;
+    }
     if (msg?.type === "POPUP_SET_MUTE") {
-      const domain = normalizeDomainLoose(msg.domain);
-if (!domain) return;
-        if (msg.muted && !mute_list.includes(domain)) mute_list.push(domain);
-        if (!msg.muted) mute_list = mute_list.filter((d) => d !== domain);
-        await saveVault();
-        routeDomainMood(domain, active_track || "Lofi");
+        const domain = normalizeDomainLoose(msg.domain);
+        if (domain) {
+            if (msg.muted && !mute_list.includes(domain)) mute_list.push(domain);
+            if (!msg.muted) mute_list = mute_list.filter((d) => d !== domain);
+            saveVault().then(() => routeDomainMood(domain, active_track || "Lofi"));
+        }
+        return false;
     }
     if (msg?.type === "POPUP_QUERY_STATE") {
         const domain = normalizeDomainLoose(msg.domain);
-        return Promise.resolve({
+        sendResponse({
             domain,
-            forcedTrack: domain_track_map[domain]    || "",
+            forcedTrack: domain_track_map[domain] || "",
             muted: mute_list.includes(domain),
             tracks: TRACKS,
             volume: master_volume,
-            globalMuted: global_muted
+            globalMuted: global_muted,
+            activeTrack: active_track
         });
+        return false;
     }
-if (msg?.type === "POPUP_SET_VOLUME") {
- master_volume = Math.max(0, Math.min(1, Number(msg.volume || 0.22)));
-if(master_gain) master_gain.gain.value = master_volume;
-await saveVault();
-}
-if (msg?.type === "OPTIONS_GET_ALL") {
-      const keys = new Set([...Object.keys(domain_track_map), ...mute_list]);
+    if (msg?.type === "POPUP_SET_VOLUME") {
+        master_volume = Math.max(0, Math.min(1, Number(msg.volume || 0.22)));
+        saveVault().then(() => sendAudioMessage("AUDIO_SET_VOLUME"));
+        return false;
+    }
+    if (msg?.type === "OPTIONS_GET_ALL") {
+        const keys = new Set([...Object.keys(domain_track_map), ...mute_list]);
         const rows = [...keys].map((domain) => ({
             domain,
             track: domain_track_map[domain] || "",
             muted: mute_list.includes(domain)
         }));
-        return Promise.resolve({ rows });
+        sendResponse({ rows });
+        return false;
     }
-if (msg?.type === "OPTIONS_SAVE_DOMAIN") {
-    const domain = normalizeDomainLoose(msg.domain);
-    if (!domain) return;
-    if (msg.track) domain_track_map[domain] = msg.track;
-    if (!msg.track) delete domain_track_map[domain];
-    if (msg.muted && !mute_list.includes(domain)) mute_list.push(domain);
-        if (!msg.muted) mute_list = mute_list.filter((d) => d !== domain);
-        await saveVault();
-        if (domain === active_domain_string) routeDomainMood(domain, active_track || "Lofi");
-      }
-if (msg?.type === "OPTIONS_REMOVE_DOMAIN") {
-    const domain = normalizeDomainLoose(msg.domain);
-    delete domain_track_map[domain];
-    mute_list = mute_list.filter((d) => d !== domain);
-    await saveVault();
-    if (domain === active_domain_string) recheckActiveTabMood().catch(() => {});
-}
-if (msg?.type === "POPUP_SET_GLOBAL_MUTE") {
-global_muted = !!msg.muted;
-await saveVault();
-if(global_muted) killCurrentTrack();
-if(!global_muted) recheckActiveTabMood().catch(() => {});
-}
+    if (msg?.type === "OPTIONS_SAVE_DOMAIN") {
+        const domain = normalizeDomainLoose(msg.domain);
+        if (domain) {
+            if (msg.track) domain_track_map[domain] = msg.track;
+            if (!msg.track) delete domain_track_map[domain];
+            if (msg.muted && !mute_list.includes(domain)) mute_list.push(domain);
+            if (!msg.muted) mute_list = mute_list.filter((d) => d !== domain);
+            saveVault().then(() => {
+                if (domain === active_domain_string) routeDomainMood(domain, active_track || "Lofi");
+            });
+        }
+        return false;
+    }
+    if (msg?.type === "OPTIONS_REMOVE_DOMAIN") {
+        const domain = normalizeDomainLoose(msg.domain);
+        if (domain) {
+            delete domain_track_map[domain];
+            mute_list = mute_list.filter((d) => d !== domain);
+            saveVault().then(() => {
+                if (domain === active_domain_string) recheckActiveTabMood().catch(() => {});
+            });
+        }
+        return false;
+    }
+    if (msg?.type === "POPUP_SET_GLOBAL_MUTE") {
+        global_muted = !!msg.muted;
+        saveVault().then(() => {
+            if (global_muted) killCurrentTrack();
+            else recheckActiveTabMood().catch(() => {});
+        });
+        return false;
+    }
 });
