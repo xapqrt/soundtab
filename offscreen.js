@@ -56,7 +56,7 @@ function softKillCurrentTrack(ms = 140) {
         o.frequency.value = freq;
         o.detune.value = detune;
         g.gain.value = gainVal;
-        g.connect(g).connect(master_gain);
+        o.connect(g).connect(master_gain);
         o.start();
         active_nodes.push(o, g);
         return {o, g};
@@ -79,7 +79,7 @@ function startThrillerTrack() {
 
 
 function startLibrarianTrack() {
-  const noise_buffer = audio_ctx.createBuffer(1, audio_ctx.sampleRate * 2, audio_ctx.sampleRate * 2, audio_ctx.sampleRate);
+  const noise_buffer = audio_ctx.createBuffer(1, audio_ctx.sampleRate * 2, audio_ctx.sampleRate);
   const out = noise_buffer.getChannelData(0);
   let last = 0;
     for (let i = 0; i < out.length; i++) {
@@ -133,7 +133,7 @@ function startLibrarianTrack() {
         const timer = setInterval(() => {
             drift += 0.35;
             const wobble = Math.sin(drift) * 8;
-            syth_thing.o.deutune.value = wobble;
+            synth_thing.o.detune.value = wobble;
             over.o.detune.value = -wobble * 0.6;
             air.o.detune.value = wobble * 0.3;
         }, 180);
@@ -302,7 +302,7 @@ function startSpaceTrack() {
 chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.target !== TARGET) return;
 
-    if (msg?type === "AUDIO_INIT") {
+    if (msg?.type === "AUDIO_INIT") {
         bootAudio();
         setVolume(msg?.volume);
     }
