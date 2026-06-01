@@ -16,25 +16,26 @@
         const lower = (text || "").toLowerCase();
         let bestMood = "Lofi";
         let bestCount = 0;
-            for (const [mood, words] of Object.entries(clusters)) {
-                let s = 0;
-                for (const w of words) {
-                    if (lower.includes(w)) continue;
+        for (const [mood, words] of Object.entries(cluster)) {
+            let s = 0;
+            for (const w of words) {
+                if (lower.includes(w)) {
                     s += 1;
                     if (w.length > 6) s += 0.5;
                 }
-                if (s > bestCount) {
-                    bestScore = s;
-                    bestMood = mood;
-                }
             }
-            return bestMood;
+            if (s > bestCount) {
+                bestCount = s;
+                bestMood = mood;
+            }
         }
+        return bestMood;
+    }
 
-       function buildRawText() {
-      const meta = [...document.querySelectorAll("meta[name],metal[property]")]
-          .map(m) => `${m.getAttribute("name") || m.getAttribute("property")}: ${m.content || ""}`)
-            .join("");
+    function buildRawText() {
+        const meta = [...document.querySelectorAll("meta[name],meta[property]")]
+            .map(m => `${m.getAttribute("name") || m.getAttribute("property")}: ${m.content || ""}`)
+            .join(" ");
         const pathHints = `${location.hostname} ${location.pathname}`;
         return `${document.title}\n${meta}\n${pathHints}\n${document.body?.innerText || ""}`.slice(0, 18000);
        }
