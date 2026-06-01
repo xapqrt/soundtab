@@ -27,19 +27,25 @@
    const tbody = $("domainTable");
    tbody.innerHTML = "";
 
-   for (const row of data.rows) {
-    const tr = document.createElement("tr");
-     tr.innerHTML = `<td>${row.domain}</td><td>${row.track || "auto"}</td><td>${row.muted ? "yes" : "no"}</td><td><button data-kill="${row.domain}">x</button></td>`;
-     tbody.appendChild(tr);
-   }
+    for (const row of data.rows) {
+      const tr = document.createElement("tr");
+      const muteStatus = row.muted 
+        ? `<span class="status-badge muted">Muted</span>` 
+        : `<span class="status-badge active">Active</span>`;
+      tr.innerHTML = `<td>${row.domain}</td>
+                      <td>${row.track || "Auto Detect"}</td>
+                      <td>${muteStatus}</td>
+                      <td><button class="delete-btn" data-kill="${row.domain}">x</button></td>`;
+      tbody.appendChild(tr);
+    }
 
     tbody.querySelectorAll("button[data-kill]").forEach((btn) => {
-         btn.addEventListener("click", async () => {
-           await chrome.runtime.sendMessage({ type: "OPTIONS_REMOVE_DOMAIN", domain: btn.dataset.kill });
-           $("status").textContent = `removed ${btn.dataset.kill}`;
-           loadRows();
-            });
-    });  
+      btn.addEventListener("click", async () => {
+        await chrome.runtime.sendMessage({ type: "OPTIONS_REMOVE_DOMAIN", domain: btn.dataset.kill });
+        $("status").textContent = `System Status: Removed ${btn.dataset.kill}`;
+        loadRows();
+      });
+    });
   }
 
   $("saveBtn").addEventListener("click", async () => {
