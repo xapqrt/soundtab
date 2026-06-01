@@ -3,7 +3,7 @@
   try {
     return new URL(rawUrl).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
-    return "",
+    return "";
   }
 }
  
